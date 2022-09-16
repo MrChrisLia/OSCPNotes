@@ -1,0 +1,8 @@
+1. Initial nmap scan -sC -sV -O
+2. Second nmap scan all ports
+3. Directory Scan medium/common.txt
+4. Subdomain scan
+5. curl -I, -i, -s
+6. view source code 
+7. check network tab
+8. GET parameters found = SQLmap check
