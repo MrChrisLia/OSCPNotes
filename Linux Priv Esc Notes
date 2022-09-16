@@ -4,5 +4,6 @@
 3. check Capabilities
   getcap -r / 2>/dev/null
 4. check /var/www
-5. check crontab
+5. check /etc/crontab
 6. check home folder
+7. check /etc/passwd for users
