@@ -4,3 +4,5 @@
 3. check Capabilities
   getcap -r / 2>/dev/null
 4. check /var/www
+5. check crontab
+6. check home folder
